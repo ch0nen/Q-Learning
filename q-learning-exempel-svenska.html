@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Q-Learning – Ett Exempel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #16161c;
+      --surface2: #1e1e28;
+      --border: #2a2a38;
+      --accent: #7ee8a2;
+      --accent2: #5bbfe8;
+      --accent3: #f7c948;
+      --accent-red: #f07070;
+      --text: #e8e8f0;
+      --text-muted: #8888a8;
+      --formula-bg: #0a1a12;
+      --formula-border: #2a4a38;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-weight: 300;
+      line-height: 1.75;
+      font-size: 18px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(126,232,162,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126,232,162,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 32px 100px;
+    }
+
+    /* Header */
+    header {
+      padding: 64px 0 48px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 64px;
+    }
+
+    .course-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .course-label::before {
+      content: '';
+      display: block;
+      width: 24px;
+      height: 1px;
+      background: var(--accent);
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.4rem, 5vw, 3.6rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 24px;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .header-desc {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 580px;
+      font-style: italic;
+    }
+
+    /* TOC */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      padding: 28px 32px;
+      margin-bottom: 64px;
+      border-radius: 2px;
+    }
+
+    .toc-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .toc ol { padding-left: 20px; }
+    .toc li { margin-bottom: 6px; color: var(--text-muted); font-size: 0.95rem; }
+    .toc a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+    .toc a:hover { color: var(--accent); }
+
+    /* Sections */
+    section { margin-bottom: 72px; }
+
+    h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--accent2);
+      margin: 40px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h3 .step-num {
+      background: var(--accent2);
+      color: var(--bg);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    p { margin-bottom: 20px; color: var(--text); }
+    strong { color: #fff; font-weight: 600; }
+    em { color: var(--accent3); font-style: italic; }
+
+    /* Callout boxes */
+    .callout {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 24px 28px;
+      margin: 32px 0;
+    }
+    .callout.green { border-left: 3px solid var(--accent); background: rgba(126,232,162,0.04); }
+    .callout.blue  { border-left: 3px solid var(--accent2); background: rgba(91,191,232,0.04); }
+    .callout.yellow { border-left: 3px solid var(--accent3); background: rgba(247,201,72,0.04); }
+    .callout.red   { border-left: 3px solid var(--accent-red); background: rgba(240,112,112,0.04); }
+
+    .callout-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .callout.green .callout-label  { color: var(--accent); }
+    .callout.blue  .callout-label  { color: var(--accent2); }
+    .callout.yellow .callout-label { color: var(--accent3); }
+    .callout.red   .callout-label  { color: var(--accent-red); }
+
+    /* Formula blocks */
+    .formula {
+      background: var(--formula-bg);
+      border: 1px solid var(--formula-border);
+      border-radius: 4px;
+      padding: 24px 32px;
+      margin: 28px 0;
+      font-family: 'Source Serif 4', serif;
+      text-align: center;
+      font-size: 1.05rem;
+      color: var(--accent);
+      letter-spacing: 0.03em;
+      overflow-x: auto;
+    }
+    .formula .small {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+    .formula .calc {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+    .formula .result {
+      color: var(--accent3);
+      font-weight: 600;
+    }
+
+    /* Maze grid */
+    .maze-wrapper {
+      margin: 32px 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .maze {
+      display: grid;
+      grid-template-columns: repeat(3, 90px);
+      grid-template-rows: repeat(2, 90px);
+      gap: 4px;
+    }
+
+    .cell {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      position: relative;
+      transition: background 0.3s;
+    }
+
+    .cell .cell-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      position: absolute;
+      top: 5px;
+      left: 7px;
+      letter-spacing: 0.05em;
+    }
+
+    .cell .cell-reward {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.65rem;
+      position: absolute;
+      bottom: 5px;
+      right: 7px;
+      font-weight: 700;
+    }
+
+    .cell.start { border-color: var(--accent2); background: rgba(91,191,232,0.08); }
+    .cell.cheese-big { border-color: var(--accent3); background: rgba(247,201,72,0.08); }
+    .cell.cheese-small { border-color: var(--accent); background: rgba(126,232,162,0.05); }
+    .cell.poison { border-color: var(--accent-red); background: rgba(240,112,112,0.08); }
+    .cell.empty { opacity: 0.5; }
+
+    .cell.start .cell-reward { color: var(--accent2); }
+    .cell.cheese-big .cell-reward { color: var(--accent3); }
+    .cell.cheese-small .cell-reward { color: var(--accent); }
+    .cell.poison .cell-reward { color: var(--accent-red); }
+
+    /* Agent indicator */
+    .agent-badge {
+      position: absolute;
+      top: 5px;
+      right: 7px;
+      font-size: 0.8rem;
+    }
+
+    /* Q-table */
+    .q-table-wrap { margin: 24px 0; overflow-x: auto; }
+
+    .q-table-wrap table {
+      border-collapse: collapse;
+      width: 100%;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.82rem;
+    }
+
+    .q-table-wrap th {
+      background: var(--surface2);
+      color: var(--accent);
+      padding: 10px 14px;
+      text-align: center;
+      border: 1px solid var(--border);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .q-table-wrap td {
+      padding: 10px 14px;
+      text-align: center;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: var(--surface);
+      white-space: nowrap;
+    }
+
+    .q-table-wrap td.zero { color: #3a3a52; }
+    .q-table-wrap td.state-label { color: var(--accent3); font-weight: 600; text-align: left; }
+    .q-table-wrap td.updated { color: var(--accent); font-weight: 700; background: rgba(126,232,162,0.07); }
+    .q-table-wrap td.updated-neg { color: var(--accent-red); font-weight: 700; background: rgba(240,112,112,0.07); }
+
+    /* Timeline / training steps */
+    .timestep-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 48px 0 32px;
+    }
+
+    .timestep-badge {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent3);
+      padding: 6px 14px;
+      border-radius: 2px;
+    }
+
+    .timestep-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Reward list */
+    .reward-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 24px 0;
+    }
+
+    .reward-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+    }
+
+    .reward-val {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      min-width: 40px;
+      text-align: right;
+    }
+
+    .reward-val.pos { color: var(--accent); }
+    .reward-val.neg { color: var(--accent-red); }
+    .reward-val.zero { color: var(--text-muted); }
+
+    .reward-desc { color: var(--text-muted); }
+
+    /* Params */
+    .params {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 24px 0;
+    }
+
+    .param {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px 18px;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.85rem;
+    }
+
+    .param span { color: var(--text-muted); margin-right: 6px; }
+    .param strong { color: var(--accent3); }
+
+    /* Step boxes */
+    .step-box {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin: 24px 0;
+      overflow: hidden;
+    }
+
+    .step-box-header {
+      background: var(--surface2);
+      padding: 12px 20px;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .step-box-header.green { color: var(--accent); }
+    .step-box-header.blue  { color: var(--accent2); }
+    .step-box-header.yellow { color: var(--accent3); }
+    .step-box-header.red   { color: var(--accent-red); }
+
+    .step-box-body { padding: 20px 24px; }
+    .step-box-body p { margin-bottom: 12px; font-size: 0.97rem; }
+    .step-box-body p:last-child { margin-bottom: 0; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 40px;
+      margin-top: 80px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      .page-wrapper { padding: 0 20px 60px; }
+      .reward-grid { grid-template-columns: 1fr; }
+      .maze { grid-template-columns: repeat(3, 72px); grid-template-rows: repeat(2, 72px); }
+      h1 { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <header>
+    <div class="course-label">Deep RL Course · Enhet 2</div>
+    <h1>Q-Learning – <span>Ett Exempel</span></h1>
+    <p class="header-desc">Vi går igenom Q-Learning steg för steg med ett konkret labyrintexempel och ser hur Q-tabellen uppdateras.</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-title">Innehåll</div>
+    <ol>
+      <li><a href="#scenario">Scenariot: Musen i labyrinten</a></li>
+      <li><a href="#steg1">Steg 1: Initiera Q-tabellen</a></li>
+      <li><a href="#tidssteg1">Tidssteg 1 – Utforskning, liten ost</a></li>
+      <li><a href="#tidssteg2">Tidssteg 2 – Utforskning, gift!</a></li>
+      <li><a href="#slutsats">Slutsats</a></li>
+    </ol>
+  </nav>
+
+  <!-- Scenario -->
+  <section id="scenario">
+    <h2>Scenariot: Musen i labyrinten</h2>
+
+    <p>För att förstå Q-Learning bättre, låt oss gå igenom ett enkelt exempel:</p>
+
+    <div class="maze-wrapper">
+      <div class="maze">
+        <!-- Row 1 -->
+        <div class="cell start">
+          <div class="cell-label">S₀</div>
+          🐭
+          <div class="cell-reward zero">+0</div>
+          <div class="agent-badge">🚩</div>
+        </div>
+        <div class="cell cheese-small">
+          <div class="cell-label">S₁</div>
+          🧀
+          <div class="cell-reward pos">+1</div>
+        </div>
+        <div class="cell empty">
+          <div class="cell-label">S₂</div>
+          ⬜
+          <div class="cell-reward zero">+0</div>
+        </div>
+        <!-- Row 2 -->
+        <div class="cell poison">
+          <div class="cell-label">S₃</div>
+          ☠️
+          <div class="cell-reward neg">−10</div>
+        </div>
+        <div class="cell empty">
+          <div class="cell-label">S₄</div>
+          ⬜
+          <div class="cell-reward zero">+0</div>
+        </div>
+        <div class="cell cheese-big">
+          <div class="cell-label">S₅</div>
+          🏆
+          <div class="cell-reward pos">+10</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align:center; font-size:0.85rem; color:var(--text-muted); margin-top:-8px;">
+      🚩 Startpunkt &nbsp;·&nbsp; 🧀 Liten ost &nbsp;·&nbsp; 🏆 Stor ostpile &nbsp;·&nbsp; ☠️ Gift
+    </p>
+
+    <ul style="padding-left:24px; margin:24px 0; color:var(--text-muted);">
+      <li style="margin-bottom:8px">Du är en mus i denna lilla labyrint och <strong style="color:#fff">startar alltid på samma position</strong>.</li>
+      <li style="margin-bottom:8px">Målet är att <strong style="color:#fff">äta den stora osthögen (nere till höger)</strong> och undvika giftet.</li>
+      <li style="margin-bottom:8px">Avsnittet slutar om du äter giftet, äter den stora osten, eller tar <strong style="color:#fff">mer än 5 steg</strong>.</li>
+    </ul>
+
+    <div class="params">
+      <div class="param"><span>Inlärningshastighet α</span><strong>0.1</strong></div>
+      <div class="param"><span>Diskonteringsfaktor γ</span><strong>0.99</strong></div>
+      <div class="param"><span>Initial ε</span><strong>1.0</strong></div>
+    </div>
+
+    <h3><span class="step-num" style="background:var(--accent3); color:var(--bg);">R</span> Belöningsfunktionen</h3>
+
+    <div class="reward-grid">
+      <div class="reward-item">
+        <div class="reward-val zero">+0</div>
+        <div class="reward-desc">Gå till ett tillstånd utan ost</div>
+      </div>
+      <div class="reward-item">
+        <div class="reward-val pos">+1</div>
+        <div class="reward-desc">Gå till tillståndet med liten ost 🧀</div>
+      </div>
+      <div class="reward-item">
+        <div class="reward-val pos" style="color:var(--accent3)">+10</div>
+        <div class="reward-desc">Gå till tillståndet med stor ostpile 🏆</div>
+      </div>
+      <div class="reward-item">
+        <div class="reward-val neg">−10</div>
+        <div class="reward-desc">Gå till gifttillståndet ☠️ och dö</div>
+      </div>
+    </div>
+
+    <div class="callout green">
+      <div class="callout-label">Optimal policy</div>
+      <p style="margin:0">Den optimala sekvensen är: <strong>höger → höger → ned</strong>. Det är vad vi vill att vår agent ska lära sig!</p>
+    </div>
+  </section>
+
+  <!-- Step 1 -->
+  <section id="steg1">
+    <h2>Steg 1: Initiera Q-tabellen</h2>
+
+    <p>Vi skapar en Q-tabell för alla tillstånds-aktionspar och initierar alla värden till <strong>0</strong>.</p>
+
+    <div class="q-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tillstånd</th>
+            <th>⬆ Upp</th>
+            <th>⬇ Ned</th>
+            <th>⬅ Vänster</th>
+            <th>➡ Höger</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="state-label">S₀ (start)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₁ (liten ost)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₂ (tom)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₃ (gift)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₄ (tom)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₅ (stor ost)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Q-tabellen är nu värdelös — alla värden är noll. Vi måste träna Q-funktionen med Q-Learning-algoritmen. Låt oss göra det för <strong>2 träningssteg</strong>.</p>
+  </section>
+
+  <!-- Timestep 1 -->
+  <section id="tidssteg1">
+    <div class="timestep-header">
+      <div class="timestep-badge">Tidssteg 1</div>
+      <div class="timestep-line"></div>
+    </div>
+
+    <h3><span class="step-num">2</span> Välj åtgärd med epsilon-girig strategi</h3>
+
+    <div class="step-box">
+      <div class="step-box-header yellow">⚡ Epsilon = 1.0 → Utforskning</div>
+      <div class="step-box-body">
+        <p>Eftersom ε = 1.0 tar vi en <strong>slumpmässig åtgärd</strong>. I det här fallet väljer vi att gå <strong>höger</strong> (från S₀ till S₁).</p>
+      </div>
+    </div>
+
+    <h3><span class="step-num">3</span> Utför åtgärd Aₜ, ta emot Rₜ₊₁ och Sₜ₊₁</h3>
+
+    <div class="step-box">
+      <div class="step-box-header green">✓ Resultat</div>
+      <div class="step-box-body">
+        <p>Genom att gå höger når vi S₁ och äter den lilla osten.</p>
+        <p><strong>Rₜ₊₁ = +1</strong> · Nytt tillstånd: <strong>Sₜ₊₁ = S₁</strong></p>
+      </div>
+    </div>
+
+    <h3><span class="step-num">4</span> Uppdatera Q(S₀, Höger)</h3>
+
+    <p>Vi använder uppdateringsformeln. Alla Q-värden i nästa tillstånd S₁ är fortfarande 0, så max Q(S₁, a) = 0.</p>
+
+    <div class="formula">
+      Q(S₀, Höger) ← Q(S₀, Höger) + α · [Rₜ₊₁ + γ · max<sub>a</sub> Q(S₁, a) − Q(S₀, Höger)]
+      <div class="calc">= 0 + 0.1 · [1 + 0.99 · 0 − 0]</div>
+      <div class="calc">= 0 + 0.1 · [1]</div>
+      <div class="calc result">= 0.1</div>
+    </div>
+
+    <p>Q-tabellen uppdateras — nu har (S₀, Höger) fått värdet 0.1:</p>
+
+    <div class="q-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tillstånd</th>
+            <th>⬆ Upp</th>
+            <th>⬇ Ned</th>
+            <th>⬅ Vänster</th>
+            <th>➡ Höger</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="state-label">S₀ (start)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="updated">0.1 ↑</td></tr>
+          <tr><td class="state-label">S₁ (liten ost)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₂ (tom)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₃ (gift)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₄ (tom)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₅ (stor ost)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Timestep 2 -->
+  <section id="tidssteg2">
+    <div class="timestep-header">
+      <div class="timestep-badge">Tidssteg 2</div>
+      <div class="timestep-line"></div>
+    </div>
+
+    <h3><span class="step-num">2</span> Välj åtgärd med epsilon-girig strategi</h3>
+
+    <div class="step-box">
+      <div class="step-box-header yellow">⚡ Epsilon = 0.99 → Utforskning igen</div>
+      <div class="step-box-body">
+        <p>ε minskade lite (0.99) men är fortfarande högt, så vi tar <strong>en slumpmässig åtgärd igen</strong>.</p>
+        <p>Vi väljer att gå <strong>ned</strong> — från S₀ till S₃ (giftet). Det är <em>inte</em> ett bra val!</p>
+      </div>
+    </div>
+
+    <h3><span class="step-num">3</span> Utför åtgärd Aₜ, ta emot Rₜ₊₁ och Sₜ₊₁</h3>
+
+    <div class="step-box">
+      <div class="step-box-header red">✗ Agenten dog!</div>
+      <div class="step-box-body">
+        <p>Vi gick ned och hamnade i gifttillståndet S₃.</p>
+        <p><strong>Rₜ₊₁ = −10</strong> · Avsnittet är slut (agenten dog).</p>
+      </div>
+    </div>
+
+    <h3><span class="step-num">4</span> Uppdatera Q(S₀, Ned)</h3>
+
+    <p>Eftersom agenten dog är detta ett terminalt tillstånd — det finns inget nästa tillstånd att ta hänsyn till, så max Q(S₃, a) = 0.</p>
+
+    <div class="formula">
+      Q(S₀, Ned) ← Q(S₀, Ned) + α · [Rₜ₊₁ + γ · max<sub>a</sub> Q(S₃, a) − Q(S₀, Ned)]
+      <div class="calc">= 0 + 0.1 · [−10 + 0.99 · 0 − 0]</div>
+      <div class="calc">= 0 + 0.1 · [−10]</div>
+      <div class="calc result" style="color:var(--accent-red);">= −1.0</div>
+    </div>
+
+    <p>Q-tabellen uppdateras — nu vet agenten att att gå ned från S₀ är <strong>dåligt</strong>:</p>
+
+    <div class="q-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tillstånd</th>
+            <th>⬆ Upp</th>
+            <th>⬇ Ned</th>
+            <th>⬅ Vänster</th>
+            <th>➡ Höger</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="state-label">S₀ (start)</td><td class="zero">0</td><td class="updated-neg">−1.0 ↓</td><td class="zero">0</td><td class="updated">0.1</td></tr>
+          <tr><td class="state-label">S₁ (liten ost)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₂ (tom)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₃ (gift)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₄ (tom)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+          <tr><td class="state-label">S₅ (stor ost)</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Conclusion -->
+  <section id="slutsats">
+    <h2>Slutsats</h2>
+
+    <p>Vi dog och ett nytt avsnitt börjar. Men titta vad som hände — <strong>med bara två utforskningssteg har agenten redan blivit smartare!</strong></p>
+
+    <div class="callout green">
+      <div class="callout-label">Vad agenten lärt sig</div>
+      <p style="margin:0 0 10px">Efter bara 2 steg vet Q-tabellen nu:</p>
+      <ul style="padding-left:20px; color:var(--text-muted);">
+        <li style="margin-bottom:6px">Gå <strong style="color:#fff">höger från S₀</strong> → värde <span style="color:var(--accent)">+0.1</span> (relativt bra)</li>
+        <li>Gå <strong style="color:#fff">ned från S₀</strong> → värde <span style="color:var(--accent-red)">−1.0</span> (dåligt — gift!)</li>
+      </ul>
+    </div>
+
+    <p>Om vi fortsätter att utforska och utnyttja miljön och uppdaterar Q-värdena med TD-målet, kommer Q-tabellen ge bättre och bättre approximationer. <strong>I slutet av träningen har vi en uppskattning av den optimala Q-funktionen</strong> — och därmed den optimala policyn: höger, höger, ned.</p>
+
+    <div class="callout blue">
+      <div class="callout-label">Nästa steg</div>
+      <p style="margin:0">Nu är det dags att implementera Q-Learning i kod! Gå vidare till <strong>Hands-on</strong>-avsnittet i kursen och träna din egen agent.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Enhet 2 · Deep RL Course</span>
+    <a href="https://huggingface.co/learn/deep-rl-course/unit2/q-learning-example" target="_blank">Originalkälla: Hugging Face ↗</a>
+  </footer>
+
+</div>
+</body>
+</html>
